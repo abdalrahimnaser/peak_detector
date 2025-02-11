@@ -11,7 +11,6 @@ entity IO is
         sendDone    : out STD_LOGIC;
         data_in     : out STD_LOGIC_VECTOR(31 downto 0);
         receiveDone : out STD_LOGIC;
-        -- 新增的端口，用于与外部的信号交互
         txnow       : out STD_LOGIC;
         txdone      : in  STD_LOGIC;
         rxnow       : in  STD_LOGIC;
