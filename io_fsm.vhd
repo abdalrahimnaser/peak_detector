@@ -85,7 +85,7 @@ begin
 		when S3 => 
 			data_in <= rxdata;
 			done <= '1';
-			next_state <= S3;
+			next_state <= IDLE;
 			
 			
 	end case;
