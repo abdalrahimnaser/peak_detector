@@ -12,7 +12,7 @@ entity main is
 	txDone : in  std_logic;
 	rxdata  : in  std_logic_vector(7 downto 0);
 	-------------------------
-        sendDone : out std_logic;
+        sendDone : out std_logic; -- we didnt account for this in FSM
         data_in : out std_logic_vector(7 downto 0);
         receiveDone : out std_logic;  --doesnt get used in the FSM we made today? 11/02
 	done  : out std_logic;
@@ -34,7 +34,6 @@ process(clk)
 begin
 	if rising_edge(clk) then
 		if rst = '1' then    
-			sendDone <= '1';  --not sure about this? perhaps 0?
 			txNow <= '1';
 			receiveDone <= '1';
         		current_state <= IDLE;
@@ -48,11 +47,12 @@ process(current_state)
 begin	
 	case current_state is
 		when IDLE =>
+			sendDone <= '1';
 			receiveDone <= '1';
 			count <= 0;
 			done <= '0';
 			if send = '1' then
-				receiveDone <= '0'; -- we didnt include this is FSM, not sure about this?
+				sendDone <= '0'; --not sure for this either
 				data_o_reg <= data_o; --not sure if in right spot? (data_o could not be shifted itself(because its an input))
 				next_state <= S1;
 			end if;
@@ -83,13 +83,16 @@ begin
 
 
 		when S3 => 
+			receiveDone <= '0'; -- we didnt include this is FSM, not sure about this?
 			data_in <= rxdata;
 			done <= '1';
-			next_state <= IDLE;
-			
+			next_state <= IDLE;		
 			
 	end case;
 end process;		
 end FSM;
+
+
+
 
 
