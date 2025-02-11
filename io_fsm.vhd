@@ -50,7 +50,7 @@ begin
 		when IDLE =>
 			receiveDone <= '1';
 			count <= 0;
-			done <= '1';
+			done <= '0';
 			if send = '1' then
 				receiveDone <= '0'; -- we didnt include this is FSM, not sure about this?
 				data_o_reg <= data_o; --not sure if in right spot? (data_o could not be shifted itself(because its an input))
