@@ -1,101 +1,111 @@
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+use IEEE.numeric_std.all;
+use IEEE.std_logic_1164.all;
 
-entity main is
-    Port (
-        clk         : in  STD_LOGIC;
-        rst         : in  STD_LOGIC;
-        data_o      : in  STD_LOGIC_VECTOR(55 downto 0);
-        send        : in  STD_LOGIC;
-        sendDone    : out STD_LOGIC;
-        data_in     : out STD_LOGIC_VECTOR(7 downto 0);
-        receive     : in  STD_LOGIC;
-        receiveDone : out STD_LOGIC;
-        txnow       : out STD_LOGIC;
-        txdone      : in  STD_LOGIC;
-        rxnow       : in  STD_LOGIC;
-        rxdata      : in  STD_LOGIC_VECTOR(7 downto 0);
-        rxdone      : out STD_LOGIC;
-        txdata      : out  std_logic_vector(7 downto 0)
-    );
-end main;
+entity IO is
+    port (
+        clk : in std_logic;
+        rst : in std_logic;
+	data_o  : in std_logic_vector(55 downto 0);
+        send  : in  std_logic;
+	valid : in std_logic; 
+	txDone : in  std_logic;
+	rxdata  : in  std_logic_vector(7 downto 0);
+	-------------------------
+        sendDone : out std_logic; -- we didnt account for this in FSM
+        data_in : out std_logic_vector(7 downto 0);
+        receiveDone : out std_logic;  --doesnt get used in the FSM we made today? 11/02
+	done  : out std_logic;
+	txNow : out std_logic;
+	txdata : out  std_logic_vector(7 downto 0);
+	current_state_sim: out std_logic_vector(1 downto 0)
 
-architecture FSM of main is
-    
-	type state_type is (IDLE, State1, State2, State3);
-    
-    signal current_state, next_state : state_type;
+	 );
+end IO;
+
+architecture FSM of IO is
+	type state_type is (IDLE, S1, S2, S3);
+	signal current_state, next_state : state_type;
  	signal count : integer := 0;
-    signal data_send    : STD_LOGIC_VECTOR(55 downto 0) := (others => '0');
-    signal data_receive : STD_LOGIC_VECTOR(31 downto 0) := (others => '0');
-    
+	signal data_o_reg : std_logic_vector(55 downto 0);
+
 begin
+
 process(clk) 
 begin
 	if rising_edge(clk) then
-		    if rst = '1' then 
-            
-               data_send    <= (others => '0');
-               data_receive <= (others => '0');
-               sendDone      <= '0';
-               receiveDone   <= '0';
-               count       <= 0;
-               txnow         <= '0';
-               rxdone        <= '0';
-               data_in       <= (others => '0');
-               current_state <= IDLE;
-          else 
-        	   current_state <= next_state; 
-          end if;
-    end if;
-end process;                
-            
- 
+		if rst = '1' then    
+			-- txNow <= '0'; for some reason this causes undef state for txNow.
+			receiveDone <= '0';
+        	current_state <= IDLE;
+			sendDone <= '0';
+			-- done <= '0'; same as txNow;
+			
+        	else 
+        		current_state <= next_state;
+        	end if;
+	end if;
+end process;
 
-process(current_state) 
-begin	        
-            case current_state is
-                when IDLE =>
-                    sendDone <= '1';
-                    receiveDone <= '1';
-                    count <= 0;
-                    if send = '1' then
-                       data_send <= data_o;
-                       count <= 0;
-                       next_state <= State1;
-                    end if;
-                    if receive = '1' then  
-                       next_state <= State3;
-                    end if;          
- 		       
- 		        when State1 => 
-			         if count = 7 then
-				        next_state <= IDLE;
-			         else if 
-			         txdone = '1' then
-			         data_in <= data_send((count+1)*8-1 downto count*8);
-					 count <= count + 1;
-					 end if;
-					 next_state <= State2;
-				end if;             
-              
-              
-               when State2 => 
-			        txnow <= '1'; 
-			        txdata <= data_send(7 downto 0);
-			        if txdone = '0' then
-				    data_send(47 downto 0) <= data_send(55 downto 8);
-				    next_state <= State1;
-				    end if;
-				   
-				       		
-               when State3 => 
-                    receiveDone <= '1'; 
-                    data_in <= rxdata;
-                    rxdone <= '1';
-                    next_state <= IDLE;  
-					 
-       end case;
-    end process;
+process(current_state, send, valid, txDone)
+begin	
+	case current_state is
+		when IDLE =>
+			sendDone <= '0';
+			receiveDone <= '0';
+			count <= 0;
+			done <= '1';
+			if send = '1' then
+--				sendDone <= '0'; --not sure for this either
+				data_o_reg <= data_o; --not sure if in right spot? (data_o could not be shifted itself(because its an input))
+				next_state <= S1;
+			elsif valid = '1' then -- (abed): changed if to elseif  
+				next_state <= S3;
+			end if;
+			
+
+		when S1 => 
+			if count = 8 then
+				receiveDone <= '1';
+				next_state <= IDLE;
+			else 
+				if txDone = '1' then
+					count <= count + 1;
+					next_state <= S2;
+				end if;
+			end if;
+			
+
+
+		when S2 => 
+			txdata <= data_o_reg(7 downto 0);
+			txNow <= '1';  -- (abed): swapped its loc with the line above as case-when is sequential
+			if txDone = '0' then
+				data_o_reg <= std_logic_vector(shift_right(unsigned(data_o_reg), 8)); -- (abed): built-in more-readable shifting func
+				txNow <= '0';
+				next_state <= S1;
+			end if;
+
+
+		when S3 => 
+--			receiveDone <= '0'; -- we didnt include this is FSM, not sure about this?
+			done <= '0';
+			data_in <= rxdata;
+			next_state <= IDLE;		
+			receiveDone <= '1';
+
+	end case;
+end process;		
+
+current_state_sim <= "00" when current_state = IDLE else
+             "01" when current_state = S1 else
+             "10" when current_state = S2 else
+             "11";
+
+
+
 end FSM;
+
+
+
+
