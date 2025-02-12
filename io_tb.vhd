@@ -1,8 +1,7 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
-use IEEE.STD_LOGIC_TEXTIO.ALL;
-use std.textio.all;
+
 
 entity IO_TB is
 end IO_TB;
