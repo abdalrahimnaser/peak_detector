@@ -34,9 +34,12 @@ process(clk)
 begin
 	if rising_edge(clk) then
 		if rst = '1' then    
-			txNow <= '1';
-			receiveDone <= '1';
+			txNow <= '0';
+			receiveDone <= '0';
         		current_state <= IDLE;
+			sendDone <= '0';
+			done <= '1';
+			
         	else 
         		current_state <= next_state;
         	end if;
@@ -47,22 +50,22 @@ process(current_state)
 begin	
 	case current_state is
 		when IDLE =>
-			sendDone <= '1';
-			receiveDone <= '1';
+			sendDone <= '0';
+			receiveDone <= '0';
 			count <= 0;
-			done <= '0';
+			done <= '1';
 			if send = '1' then
-				sendDone <= '0'; --not sure for this either
+--				sendDone <= '0'; --not sure for this either
 				data_o_reg <= data_o; --not sure if in right spot? (data_o could not be shifted itself(because its an input))
 				next_state <= S1;
-			end if;
-			if valid = '1' then  
+			elsif valid = '1' then -- (abed): changed if to elseif  
 				next_state <= S3;
 			end if;
 			
 
 		when S1 => 
 			if count = 7 then
+				receiveDone <= '1';
 				next_state <= IDLE;
 			else 
 				if txdone = '1' then
@@ -74,20 +77,21 @@ begin
 
 
 		when S2 => 
-			txnow <= '1'; 
 			txdata <= data_o_reg(7 downto 0);
+			txnow <= '1';  -- (abed): swapped its loc with the line above as case-when is sequential
 			if txdone = '0' then
-				data_o_reg(47 downto 0) <= data_o_reg(55 downto 8);
+				data_o_reg <= shift_right(data_o_reg, 8); -- (abed): built-in more-readable shifting func
 				next_state <= S1;
 			end if;
 
 
 		when S3 => 
-			receiveDone <= '0'; -- we didnt include this is FSM, not sure about this?
+--			receiveDone <= '0'; -- we didnt include this is FSM, not sure about this?
+			done <= '0';
 			data_in <= rxdata;
-			done <= '1';
 			next_state <= IDLE;		
-			
+			receiveDone <= '1';
+
 	end case;
 end process;		
 end FSM;
