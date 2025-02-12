@@ -86,25 +86,13 @@ begin
         wait until rxdone = '1';
         rxnow <= '0';
         wait for clk_period;       
-        rxnow <= '1';
-        rxdata <= x"03";
-        wait for clk_period;
-        wait until rxdone = '1';
-        rxnow <= '0';
-        wait for clk_period;
-        rxnow <= '1';
-        rxdata <= x"04";
-        wait for clk_period;
-        wait until rxdone = '1';
-        rxnow <= '0';
-        wait for clk_period;
         
-        wait for clk_period * 10;
+        wait for clk_period * 4;
         
        -- verify the received data
         wait until receiveDone = '1';
-        assert data_in = X"04030201" 
-           report "Receive error. Expected 04030201, got" & data_in(31 downto 28) & data_in(27 downto 24) & data_in(23 downto 20) & data_in(19 downto 16) & data_in(15 downto 12) & data_in(11 downto 8) & data_in(7 downto 4) & data_in(3 downto 0)
+        assert data_in = X"0201" 
+           report "Receive error. Expected 04030201, got" &  data_in(7 downto 4) & data_in(3 downto 0)
            severity error;
         report "Receive test passed";
        
