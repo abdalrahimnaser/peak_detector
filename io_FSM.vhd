@@ -87,7 +87,7 @@ begin
 			        if txdone = '0' then
 				    data_send(47 downto 0) <= data_send(55 downto 8);
 				    next_state <= State1;
-				    end if
+				    end if;
 				   
 				       		
                when State3 => 
