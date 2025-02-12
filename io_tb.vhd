@@ -45,7 +45,7 @@ constant clk_period : time := 10ns ;
 
 begin
 
-    uut: IO port map (
+    uut: main port map (
         clk         => clk,
         rst         => rst,
         data_o      => data_o,
