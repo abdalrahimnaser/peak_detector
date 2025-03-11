@@ -25,7 +25,7 @@ end IO;
 architecture FSM of IO is
     type state_type is (IDLE, START_TRANSMISSION, SENDING, RECEIVING, START_RECEIVING,
                         SEND_HEX_HIGH, WAIT_HEX_HIGH, SEND_HEX_LOW, WAIT_HEX_LOW,
-                        SEND_HEX_SPACE, WAIT_HEX_SPACE);
+                        SEND_HEX_SPACE, WAIT_HEX_SPACE, ECHO);
     signal current_state, next_state : state_type;
     signal txdata_reg, rxdata_reg: std_logic_vector(7 downto 0) := (others => '0');
     signal hex_high_reg, hex_low_reg : std_logic_vector(3 downto 0) := (others => '0');
@@ -163,10 +163,20 @@ begin
 
         when START_RECEIVING =>
             rxdata_reg <= rxdata;
-            done <= '1';
-            receiveDone <= '1';
-            next_state <= IDLE;
-
+            txdata_reg <= rxdata;
+            txNow <= '1';
+            next_state <= ECHO;
+        
+        when ECHO =>
+            sendDone <= '0';
+            if txDone = '1' then
+                done <= '1';
+                receiveDone <= '1';
+                next_state <= IDLE;
+            else 
+                next_state <= ECHO;
+            end if;
+    
         when others =>
             next_state <= IDLE;
 
