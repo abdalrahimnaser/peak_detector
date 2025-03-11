@@ -22,28 +22,40 @@ entity Main is
     data_o: out std_logic_vector(7 downto 0);
     send: out std_logic;
     pr_start: out std_logic;
-    cmd: out std_logic_vector(31 downto 0);
+    cmd: out std_logic_vector(7 downto 0);
     state_debug_main: out std_logic_vector(2 downto 0)
 --    fifo_wr_en : out std_logic
   );
 end Main; 
 
 architecture MAIN_FSM of Main is
-  type state_type is (IDLE, CMD_COMBINE, TMP,CMD_DETECTED, PATTERN_0, PATTERN_1, PATTERN_2, DATA_PROCESSING);
+  type state_type is (IDLE, CMD_COMBINE, TMP,PATTERN_RECOGNITION, PATTERN_0, PATTERN_1, PATTERN_2, WAIT_0);
   signal current_state, next_state : state_type; 
   
   -- Registered outputs
   signal dp_start_reg, pr_start_reg, send_reg : std_logic;
   signal cmd_reg                               : std_logic_vector(31 downto 0) := (others => '0');
-  signal data_o_reg                            : std_logic_vector(7 downto 0):=(others => '0'); --do this for the rest
+  signal data_o_current, data_o_next                            : std_logic_vector(7 downto 0):=(others => '0'); --do this for the rest
   signal num2, num1, num0                      : std_logic_vector(3 downto 0);
   signal num5, num4, num3                      : std_logic_vector(7 downto 0);
-  signal dataResults_reg                       : std_logic_vector(55 downto 0);
-  signal maxIndex_reg                          : std_logic_vector(11 downto 0);
+  signal dataResults_reg                       : std_logic_vector(55 downto 0) := (others => '0');
+  signal maxIndex_reg                          : std_logic_vector(11 downto 0) := (others => '0');
   signal tmp5, tmp4, tmp3                      : std_logic_vector(7 downto 0);
   signal counter                               : integer := 0;
-
+  signal pattern_0_current, pattern_0_next: std_logic_vector(15 downto 0);
+  signal en_cnt,rst_cnt : std_logic:='0';
+  signal test_reg : std_logic_vector(7 downto 0);
+  signal pattern_reg: std_logic_vector(1 downto 0);
 begin
+
+process(clk)
+begin
+if rising_edge(clk) then
+if receiveDone = '1' then
+    cmd_reg <= cmd_reg(23 downto 0) & data_in;
+end if;
+end if;
+end process;
 
 
 -- ascii to bcd conversion
@@ -70,36 +82,105 @@ begin
             current_state <= IDLE;
         else 
             current_state <= next_state;
+            data_o_current <= data_o_next;
+            pattern_0_current <= pattern_0_next;
         end if;
     end if;
 end process;
 
+
+--process(clk) 
+--begin
+--    if rising_edge(clk) then
+--        if en_cnt_4 = '1' then
+--            if receiveDone='1' then
+--                counter <= counter + 1;
+--                cmd_reg <= cmd_reg(23 downto 0) & data_in;
+--             end if;
+--        else 
+--            counter <= 0;
+--        end if;
+ 
+--        end if;
+--end process;
+
+
+--process(en_cnt_4, receiveDone)
+--begin
+--    if en_cnt_4 = '1' then
+--        if receiveDone = '1' then
+--             cmd_reg <= cmd_reg(23 downto 0) & data_in;
+--             counter <= counter + 1;
+--        end if;
+--    else
+--        counter <= 0;
+--    end if;
+--end process;
+
+process(clk)
+begin
+if rising_edge(clk) then
+    if rst_cnt = '1' then
+        counter <= 0;
+    elsif en_cnt = '1' then
+        counter <= counter + 1;
+    end if;
+    end if;
+end process;
+
+
+
+-- In clocked process
+--en_cnt_4 <= '1' when (current_state = CMD_COMBINE) else '0';
+
+-- Then use en_cnt_4_reg in other processes
+
 -- next state logic
-process(current_state, receiveDone, dataReady, sendDone, seqDone,recogniseDone)
+
+
+
+process(current_state,receiveDone, sendDone, recogniseDone, dataReady, seqDone)
 begin
     -- assign defaults here (remember process is sequential)
     dp_start_reg <= '0';
     pr_start_reg <= '0';
     send_reg <= '0';
-
-    case current_state is
+    en_cnt <= '0';
+    rst_cnt<= '1';
+    next_state <= current_state;
+pattern_0_next <= pattern_0_current;
+     case current_state is
         when IDLE =>
-            counter <= 0;
             if receiveDone = '1' then
-                next_state <= CMD_COMBINE;
+                pr_start_reg <= '1';
+            end if;
+
+            if recogniseDone = '1' then 
+            next_state <= PATTERN_RECOGNITION;
             end if;
 
         when CMD_COMBINE =>
-            if receiveDone = '1' then
-				cmd_reg <= cmd_reg(23 downto 0) & data_in;
-		    end if;
-            counter <= counter + 1;
-            if counter = 6 then
-                next_state <= CMD_DETECTED;
-                counter <= 0;
-            end if;
+--            rst_cnt_4 <= '0';
+--            if counter = 3 then
+--                next_state <= CMD_DETECTED;
+--            else
+--                if receiveDone = '1' then
+--                    en_cnt_4 <= '1';
+--                else
+--                    en_cnt_4 <= '0';
+--                end if;
+--            end if;
+                 
+             
+
+        
+        
+--            if counter = 4 then
+--                next_state <=CMD_DETECTED;
+--                end if;
 
         when TMP =>
+            next_state <= WAIT_0;
 --            if counter = 4 then
 --                next_state <= CMD_DETECTED;
 --            else
@@ -112,21 +193,17 @@ begin
 --            end if;
         
         
-        when CMD_DETECTED =>
-            pr_start_reg <= '1';
-            if recogniseDone = '1' then
-                if pattern = "00" then
-                    next_state <= PATTERN_0;
-                elsif pattern = "01" then
-                    next_state <= PATTERN_1;
-                elsif pattern = "10" then
-                    next_state <= PATTERN_2;
-                elsif pattern = "11" then
-                    next_state <= IDLE;
-
+        when PATTERN_RECOGNITION =>
+                -- use case pattern
+                if    pattern = "00" then 
+                        next_state <= PATTERN_0;
+                elsif pattern = "01" then  
+                        next_state <= PATTERN_1;
+                elsif pattern = "10" then  
+                        next_state <= PATTERN_2;
+                else   
+                        next_state <= IDLE;
                 end if;
-            end if;
-
 --        when PATTERN_ELSE =>
 --            -- should i define a pattern_reg and assign it the pattern val in cmd detected?
 --            if pattern = "01" then
@@ -140,68 +217,80 @@ begin
 --            send_reg <= '1';
 --            next_state <= IDLE;
     when PATTERN_1 =>
+            rst_cnt <= '0';
             send_reg <= '1';
-            
-            if sendDone = '1' then
-                counter <= counter +1;
-            end if;
-            
+            en_cnt <= '1';           
+            if sendDone = '0' then
+                en_cnt <= '0';
+                send_reg <= '0';
+            end if;               
             if counter = 0 then
-                data_o_reg <= num3;
+                data_o_next <= num3;
             elsif counter = 1 then
-                data_o_reg <= num4;
+                data_o_next <= num4;
             elsif counter = 2 then
-                data_o_reg <= num5;
+                data_o_next <= num5;
             elsif counter = 3 then
-                data_o_reg <= x"20"; --space
+                data_o_next <= x"20"; --space
+            elsif counter = 4 then
+                data_o_next <= dataResults_reg(31 downto 24);
             else 
-                data_o_reg <= dataResults_reg(31 downto 24);
                 next_state <= IDLE;
-                counter <= 0;
-                
             end if;
 
        when PATTERN_2 =>
+            rst_cnt <= '0';
             send_reg <= '1';
-            if sendDone = '1' then
-                counter <= counter + 1;
-            end if;
-            data_o_reg <= dataResults_reg(((counter+1)*8 - 1) downto counter * 8 );
-            if counter = 7 then
-                next_state <= IDLE;
-            end if;
+            en_cnt <= '1';           
+            if sendDone = '0' then
+                en_cnt <= '0';
+                send_reg <= '0';
+            end if;  
+            
+            if counter = 0 then
+                    data_o_next <= dataResults_reg(55 downto 48);
+                elsif counter = 1 then
+                    data_o_next <= dataResults_reg(47 downto 40);
+                elsif counter = 2 then
+                    data_o_next <= dataResults_reg(39 downto 32);
+                elsif counter = 3 then
+                    data_o_next <= dataResults_reg(31 downto 24);
+               elsif counter = 4 then
+                    data_o_next <= dataResults_reg(23 downto 16);
+               elsif counter = 5 then
+                    data_o_next <= dataResults_reg(15 downto 8);
+                elsif counter = 6 then 
+                    data_o_next <= dataResults_reg(7 downto 0);
+                else
+                    next_state <= IDLE;
+
+                end if;
+
 
 
         when PATTERN_0 =>
-            -- cmd_reg = "ANNN", 
-            numWords <= num2 & num1 & num0; -- bcd(cmd)
-            dp_start_reg <= '1';
-            next_state <= DATA_PROCESSING;
-            
-        when DATA_PROCESSING =>
             dp_start_reg <= '1';
             if sendDone = '0' then
                 dp_start_reg <= '0';
-            end if;
-            --else         
-           if dataReady='1' then -- will you may wanna be saying why not elsif? isn't dataready = 0 if dp_start = 0?
-                                 -- that's true, but there's a delay a few cycles after dp_start set to zero which the dp will need till halts its op
-                                 -- so for now just use a regular if
-                                                
-                data_o_reg  <= byte; -- Byte + 6 spaces
+            elsif dataReady = '1' then
+                data_o_next <= byte;
                 send_reg <= '1';
-                -- TODO: if data processor is faster than Io send
-                -- then construct some sort of buffer and idk adjust 
-                -- fsm accordingly
-                -- even if it worked fine (dp isn't faster), do implement the mentioned above
-                -- as a good design practice, and state that in the report.
-             end if;
+            end if;
+            
+           if seqDone = '1' then
+                maxIndex_reg <= maxIndex;
+                dataResults_reg <= dataResults;
+                next_state <= IDLE;
+           end if;
+
              
-             if seqDone='1' then
-                    dataResults_reg <= dataResults;
-                    maxIndex_reg <= maxIndex;
-                    next_state <= IDLE;
-             end if;
+        when WAIT_0 =>
+--           if seqDone = '1' then
+--                next_state <= IDLE;
+                
+--           elsif sendDone = '1' then
+--                next_state <= PATTERN_0;
+--            end if;
     
     end case;
 
@@ -211,15 +300,20 @@ end process;
 dp_start <= dp_start_reg;
 pr_start <= pr_start_reg;
 send     <= send_reg;
-cmd      <= cmd_reg;
-data_o   <= data_o_reg;
+--cmd      <= cmd_reg;
+data_o   <= data_o_current;
+cmd <= data_in;
+numWords <= num2&num1&num0; -- bcd(cmd)
+
+
+
 
 state_debug_main <=  "000" when current_state = IDLE else
                 "001" when current_state = CMD_COMBINE else
                 "010" when current_state = TMP else
-                "011" when current_state = CMD_DETECTED else
+                "011" when current_state = PATTERN_RECOGNITION else
                 "100" when current_state = PATTERN_0 else
                 "101" when current_state = PATTERN_1 else
-                "110" when current_state = DATA_PROCESSING else
+                "110" when current_state = WAIT_0 else
                 "111";
 end MAIN_FSM;
