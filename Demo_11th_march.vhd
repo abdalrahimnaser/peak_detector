@@ -228,7 +228,6 @@ architecture behavioural of dataConsume is
     
                 when START_P =>
                     dataReady <= '1';
-                    byte      <= data;
     
                 when others =>
                     seqDone   <= '0';
@@ -285,9 +284,9 @@ architecture behavioural of dataConsume is
             end if;
         end if;         
     end process rising_edge_detection;
-    
+ 
+byte <= data;
 
 end behavioural;
 
 --Last updated 17/02/2025
-
