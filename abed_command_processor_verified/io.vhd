@@ -21,8 +21,9 @@ entity IO is
 end IO;
 
 architecture FSM of IO is
-    type state_type is (IDLE, SENDING, RECEIVING);
+    type state_type is (IDLE, START_TRANSMISSION,SENDING, RECEIVING, START_RECEIVING);
     signal current_state, next_state : state_type;
+    signal txdata_reg, rxdata_reg: std_logic_vector(7 downto 0):=(others => '0');
 begin
 
 -- State register
@@ -38,41 +39,46 @@ begin
 end process;
 
 -- Next state and output logic
-process(current_state, send, valid, txDone, rxdata, data_o)
+process(current_state, send, valid, txDone)
 begin
     -- Default outputs
-    sendDone <= '1';
-    receiveDone <= '0';
     done <= '0'; -- later map done and receivedone to the same sig
     txNow <= '0';
-    txdata <= (others => '0');
-    data_in <= (others => '0');
+    receiveDone <= '0';
     next_state <= current_state;
-
+    sendDone <= '1';
     case current_state is
         when IDLE =>
             if send = '1' then
-                next_state <= SENDING;
-                txdata <= data_o;      -- Latch output data
-                txNow <= '1';          -- Start transmission
-            elsif valid = '1' then
---                next_state <= RECEIVING;
-                done <= '1';
-                receiveDone <= '1';
-                data_in <= rxdata;     -- Capture received data
+                next_state <= START_TRANSMISSION;
+            elsif valid = '1' then 
+                next_state <= START_RECEIVING;
             end if;
 
+        when START_TRANSMISSION =>
+            sendDone <= '0';
+            txdata_reg <= data_o;
+            txNow <= '1';
+            next_state <= SENDING;
+            
+        when START_RECEIVING =>
+            rxdata_reg <= rxdata;
+            done <= '1';
+            receiveDone <= '1';
+            next_state <= IDLE;
+--            if valid = '0' then
+--                next_state <= RECEIVING;
+--            end if;
+            
         when SENDING =>
             sendDone <= '0';
             if txDone = '1' then       -- Wait for transmission complete
---                sendDone <= '1';
                 next_state <= IDLE;
             end if;
-
+        
         when RECEIVING =>
 --            receiveDone <= '1';
---            done <= '0';
---            next_state <= IDLE;
+            next_state <= IDLE;
 
     end case;
 end process;
@@ -81,4 +87,8 @@ end process;
 current_state_sim_io <= "00" when current_state = IDLE else
                         "01" when current_state = SENDING else
                         "11"; -- RECEIVING
+
+txdata <= txdata_reg; 
+data_in <= rxdata_reg;
+           
 end FSM;
