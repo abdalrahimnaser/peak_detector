@@ -32,7 +32,7 @@ architecture behavioural of dataConsume is
     signal reg_numWords : integer := 0;
         
     signal reg_dataResult : CHAR_ARRAY_TYPE(0 to 5); 
-    signal reg_dataResults : CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1); 
+    signal dataResults_current, dataResults_next : CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1); 
     
     signal reg_Count : integer := 0;
     signal reg_Start : std_logic;
@@ -42,6 +42,7 @@ architecture behavioural of dataConsume is
     
     signal reg_peak : integer := 0;
     
+    signal maxIndex_current, maxIndex_next : BCD_ARRAY_TYPE(2 downto 0); --this is new to try to reduce latches
     -------------------------------
     -- Converts Decimal to Binary using a BCD conversion
     -------------------------------
@@ -164,48 +165,47 @@ architecture behavioural of dataConsume is
         if rising_edge(clk) then
             case curState is
                 when INIT =>
-                    reg_dataResults <= (others => (others => '0'));
+                    dataResults_next <= (others => (others => '0'));
                     reg_peak := -128;                
                     maxIndex <= (others => (others => '0'));
-                    dataResults <= (others => (others => '0'));
     
                 when OUTPUT_STATE =>
-                    reg_dataResults(0 to 5) <= reg_dataResults(0 to 5);
+                    dataResults_next <= dataResults_current;
     
                 when PENDING =>
-                    reg_dataResults(0) <= data;
-                    reg_dataResults(1 to 6) <= reg_dataResults(0 to 5);
+                    dataResults_next(0) <= data;
+                    dataResults_next(1 to 6) <= dataResults_current(0 to 5);
                     
     
                 when START_P =>
-                    if signed(reg_dataResults(3)) > reg_peak then
-                        dataResults <= reg_dataResults;
-                        maxIndex <= DecToBCD(reg_Count - 4); --bcd convert count
-                        reg_peak := to_integer(signed(reg_dataResults(3)));
+                   if signed(dataResults_current(3)) > reg_peak then
+                        dataResults_next <= dataResults_current;
+                        maxIndex_next <= DecToBCD(reg_Count - 4); --bcd convert count
+                        reg_peak := to_integer(signed(dataResults_current(3)));
                     end if;
     
                 when PEAK_STAGE_1 =>
-                    if signed(reg_dataResults(2)) > reg_peak and reg_Count = reg_numWords then
-                        reg_peak := to_integer(signed(reg_dataResults(2)));
-                        dataResults <= (others => (others => '0'));
-                        dataResults(1 to 6) <= reg_dataResults(0 to 5);
-                        maxIndex <= DecToBCD(reg_Count - 3);
+                   if signed(dataResults_current(2)) > reg_peak and reg_Count = reg_numWords then
+                        reg_peak := to_integer(signed(dataResults_current(2)));
+                        dataResults_next <= (others => (others => '0'));
+                        dataResults_next(1 to 6) <= dataResults_current(0 to 5);
+                        maxIndex_next <= DecToBCD(reg_Count - 3);
                     end if;
     
                 when PEAK_STAGE_2 =>
-                    if signed(reg_dataResults(1)) > reg_peak and reg_Count = reg_numWords then
-                        reg_peak := to_integer(signed(reg_dataResults(1)));
-                        dataResults <= (others => (others => '0'));
-                        dataResults(2 to 6) <= reg_dataResults(0 to 4);
-                        maxIndex <= DecToBCD(reg_Count - 2);
+                    if signed(dataResults_current(1)) > reg_peak and reg_Count = reg_numWords then
+                        reg_peak := to_integer(signed(dataResults_current(1)));
+                        dataResults_next <= (others => (others => '0'));
+                        dataResults_next(2 to 6) <= dataResults_current(0 to 4);
+                        maxIndex_next <= DecToBCD(reg_Count - 2);
                     end if;
     
                 when PEAK_STAGE_3 =>
-                    if signed(reg_dataResults(0)) > reg_peak and reg_Count = reg_numWords then
-                        reg_peak := to_integer(signed(reg_dataResults(0)));
-                        dataResults <= (others => (others => '0'));
-                        dataResults(3 to 6) <= reg_dataResults(0 to 3);
-                        maxIndex <= DecToBCD(reg_Count - 2);
+                   if signed(dataResults_current(0)) > reg_peak and reg_Count = reg_numWords then
+                        reg_peak := to_integer(signed(dataResults_current(0)));
+                        dataResults_next <= (others => (others => '0'));
+                        dataResults_next(3 to 6) <= dataResults_current(0 to 3);
+                        maxIndex_next <= DecToBCD(reg_Count - 2);
                     end if;
     
                 when others => 
@@ -277,15 +277,22 @@ architecture behavioural of dataConsume is
         if rising_edge(clk) then
             if reset = '1' then
                 curState <= INIT;
+                dataResults_current <= (others => (others => '0'));
+                maxIndex_current <= (others => (others => '0'));
             else
                 curState  <= nextState;
                 reg_Start <= start;
                 ctrlOut   <= reg_OUTPUT_STATE;
+                dataResults_current <= dataResults_next;
+                maxIndex_current <= maxIndex_next;
             end if;
         end if;         
     end process rising_edge_detection;
  
 byte <= data;
+dataResults <= dataResults_current;
+maxIndex <= maxIndex_current;
+
 
 end behavioural;
 
