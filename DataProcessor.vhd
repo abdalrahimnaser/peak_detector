@@ -42,7 +42,7 @@ architecture behavioural of dataConsume is
     
     signal reg_peak : integer := 0;
     
-    signal maxIndex_current, maxIndex_next : BCD_ARRAY_TYPE(2 downto 0); --this is new to try to reduce latches
+    --signal maxIndex_current, maxIndex_next : BCD_ARRAY_TYPE(2 downto 0); --this is new to try to reduce latches, but ignore this as it caused more issues
     -------------------------------
     -- Converts Decimal to Binary using a BCD conversion
     -------------------------------
@@ -180,7 +180,7 @@ architecture behavioural of dataConsume is
                 when START_P =>
                    if signed(dataResults_current(3)) > reg_peak then
                         dataResults_next <= dataResults_current;
-                        maxIndex_next <= DecToBCD(reg_Count - 4); --bcd convert count
+                        maxIndex <= DecToBCD(reg_Count - 4); --bcd convert count
                         reg_peak := to_integer(signed(dataResults_current(3)));
                     end if;
     
@@ -189,7 +189,7 @@ architecture behavioural of dataConsume is
                         reg_peak := to_integer(signed(dataResults_current(2)));
                         dataResults_next <= (others => (others => '0'));
                         dataResults_next(1 to 6) <= dataResults_current(0 to 5);
-                        maxIndex_next <= DecToBCD(reg_Count - 3);
+                        maxIndex <= DecToBCD(reg_Count - 3);
                     end if;
     
                 when PEAK_STAGE_2 =>
@@ -197,7 +197,7 @@ architecture behavioural of dataConsume is
                         reg_peak := to_integer(signed(dataResults_current(1)));
                         dataResults_next <= (others => (others => '0'));
                         dataResults_next(2 to 6) <= dataResults_current(0 to 4);
-                        maxIndex_next <= DecToBCD(reg_Count - 2);
+                        maxIndex <= DecToBCD(reg_Count - 2);
                     end if;
     
                 when PEAK_STAGE_3 =>
@@ -205,7 +205,7 @@ architecture behavioural of dataConsume is
                         reg_peak := to_integer(signed(dataResults_current(0)));
                         dataResults_next <= (others => (others => '0'));
                         dataResults_next(3 to 6) <= dataResults_current(0 to 3);
-                        maxIndex_next <= DecToBCD(reg_Count - 2);
+                        maxIndex <= DecToBCD(reg_Count - 2);
                     end if;
     
                 when others => 
@@ -278,20 +278,20 @@ architecture behavioural of dataConsume is
             if reset = '1' then
                 curState <= INIT;
                 dataResults_current <= (others => (others => '0'));
-                maxIndex_current <= (others => (others => '0'));
+                -- maxIndex_current <= (others => (others => '0'));IGNORE
             else
                 curState  <= nextState;
                 reg_Start <= start;
                 ctrlOut   <= reg_OUTPUT_STATE;
                 dataResults_current <= dataResults_next;
-                maxIndex_current <= maxIndex_next;
+                -- maxIndex_current <= maxIndex_next; IGNORE
             end if;
         end if;         
     end process rising_edge_detection;
  
 byte <= data;
 dataResults <= dataResults_current;
-maxIndex <= maxIndex_current;
+-- maxIndex <= maxIndex_current; IGNORE
 
 
 end behavioural;
