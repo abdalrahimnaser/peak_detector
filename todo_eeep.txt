@@ -1,0 +1,5 @@
+do not forget to include a precompiled bitstream of the project
+fix the dp latch bug
+further refactor
+final waveform check
+make sure uart_tx and uart_rx files same as provided
