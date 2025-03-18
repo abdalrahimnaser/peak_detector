@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.numeric_std.all;
 use IEEE.std_logic_1164.all;
 
-entity pr_v2 is
+entity pr is
     port (
         clk : in std_logic;
         rst : in std_logic;
@@ -11,9 +11,9 @@ entity pr_v2 is
         pattern : out std_logic_vector(1 downto 0);
         recogniseDone : out std_logic
     );
-end pr_v2;
+end pr;
 
-architecture recogniserFSM of pr_v2 is
+architecture recogniserFSM of pr is
     type state_type is (IDLE, S1, S2, S3, S4, S5, S6);
     signal current_state, next_state : state_type;
     signal temp_pattern, current_pattern, next_pattern : std_logic_vector(1 downto 0);
