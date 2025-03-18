@@ -7,7 +7,7 @@ entity pr_v2 is
         clk : in std_logic;
         rst : in std_logic;
         start : in std_logic;
-        cmd : in std_logic_vector(7 downto 0);
+        char : in std_logic_vector(7 downto 0);
         pattern : out std_logic_vector(1 downto 0);
         recogniseDone : out std_logic
     );
@@ -36,7 +36,7 @@ begin
         end if;
     end process;
 
-    process(current_state, start, cmd) --including only 'clk' in the sensitivity list was the only way i could get it work? possibly bad practice?
+    process(current_state, start, char) --including only 'clk' in the sensitivity list was the only way i could get it work? possibly bad practice?
     begin
         temp_recogniseDone <= '0';
         next_state <= current_state;
@@ -44,22 +44,22 @@ begin
         case current_state is
             when IDLE =>
                 if start = '1' then
-                    if (cmd = std_logic_vector(to_unsigned(80, 8)) or cmd = std_logic_vector(to_unsigned(112, 8))) then
+                    if (char = std_logic_vector(to_unsigned(80, 8)) or char = std_logic_vector(to_unsigned(112, 8))) then
                         next_state <= S5;
-                    elsif (cmd = std_logic_vector(to_unsigned(76, 8)) or cmd = std_logic_vector(to_unsigned(108, 8))) then
+                    elsif (char = std_logic_vector(to_unsigned(76, 8)) or char = std_logic_vector(to_unsigned(108, 8))) then
                         next_state <= S6;
-                    elsif (cmd = std_logic_vector(to_unsigned(65, 8)) or cmd = std_logic_vector(to_unsigned(97, 8))) then
+                    elsif (char = std_logic_vector(to_unsigned(65, 8)) or char = std_logic_vector(to_unsigned(97, 8))) then
                         next_state <= S1;
                     end if;
                 end if;
 
             when S1 =>
                 if start = '1' then
-                    if (cmd = std_logic_vector(to_unsigned(80, 8)) or cmd = std_logic_vector(to_unsigned(112, 8))) then
+                    if (char = std_logic_vector(to_unsigned(80, 8)) or char = std_logic_vector(to_unsigned(112, 8))) then
                         next_state <= S5;
-                    elsif (cmd = std_logic_vector(to_unsigned(76, 8)) or cmd = std_logic_vector(to_unsigned(108, 8))) then
+                    elsif (char = std_logic_vector(to_unsigned(76, 8)) or char = std_logic_vector(to_unsigned(108, 8))) then
                         next_state <= S6;
-                    elsif (cmd >= std_logic_vector(to_unsigned(48, 8)) and cmd <= std_logic_vector(to_unsigned(57, 8))) then
+                    elsif (char >= std_logic_vector(to_unsigned(48, 8)) and char <= std_logic_vector(to_unsigned(57, 8))) then
                         next_state <= S2;
                     else
                         next_state <= IDLE;
@@ -68,11 +68,11 @@ begin
 
             when S2 =>
                 if start = '1' then
-                    if (cmd = std_logic_vector(to_unsigned(80, 8)) or cmd = std_logic_vector(to_unsigned(112, 8))) then
+                    if (char = std_logic_vector(to_unsigned(80, 8)) or char = std_logic_vector(to_unsigned(112, 8))) then
                         next_state <= S5;
-                    elsif (cmd = std_logic_vector(to_unsigned(76, 8)) or cmd = std_logic_vector(to_unsigned(108, 8))) then
+                    elsif (char = std_logic_vector(to_unsigned(76, 8)) or char = std_logic_vector(to_unsigned(108, 8))) then
                         next_state <= S6;
-                    elsif (cmd >= std_logic_vector(to_unsigned(48, 8)) and cmd <= std_logic_vector(to_unsigned(57, 8))) then
+                    elsif (char >= std_logic_vector(to_unsigned(48, 8)) and char <= std_logic_vector(to_unsigned(57, 8))) then
                         next_state <= S3;
                     else
                         next_state <= IDLE;
@@ -81,11 +81,11 @@ begin
 
             when S3 =>
                 if start = '1' then
-                    if (cmd = std_logic_vector(to_unsigned(80, 8)) or cmd = std_logic_vector(to_unsigned(112, 8))) then
+                    if (char = std_logic_vector(to_unsigned(80, 8)) or char = std_logic_vector(to_unsigned(112, 8))) then
                         next_state <= S5;
-                    elsif (cmd = std_logic_vector(to_unsigned(76, 8)) or cmd = std_logic_vector(to_unsigned(108, 8))) then
+                    elsif (char = std_logic_vector(to_unsigned(76, 8)) or char = std_logic_vector(to_unsigned(108, 8))) then
                         next_state <= S6;
-                    elsif (cmd >= std_logic_vector(to_unsigned(48, 8)) and cmd <= std_logic_vector(to_unsigned(57, 8))) then
+                    elsif (char >= std_logic_vector(to_unsigned(48, 8)) and char <= std_logic_vector(to_unsigned(57, 8))) then
                         next_state <= S4;
                     else
                         next_state <= IDLE;
