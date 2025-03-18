@@ -82,6 +82,76 @@ architecture Behavioral of cmdProc is
     
     end component;
 
+
+component main is
+  port(
+    clk,rst: in std_logic;
+    deviceOutputSent: in std_logic;
+    deviceInput: in std_logic_vector(7 downto 0);
+    deviceInputReady: in std_logic;
+    pattern: in std_logic_vector(1 downto 0);
+    recogniseDone: in std_logic;
+    dataReady: in std_logic;
+    byte: in std_logic_vector(7 downto 0);
+    maxIndex: in std_logic_vector(11 downto 0);
+    dataResults: in std_logic_vector(55 downto 0);
+    seqDone: in std_logic;
+    ------------------------
+    dp_start: out std_logic;
+    numWords: out std_logic_vector(11 downto 0);
+    deviceOutput: out std_logic_vector(7 downto 0);
+    send: out std_logic;
+    pr_start: out std_logic;
+    char: out std_logic_vector(7 downto 0);
+    hex_disp: out std_logic;
+    space:    out std_logic
+  );
+	end component;  
+
+component IO is
+     port (
+        clk           : in  std_logic;
+        rst           : in  std_logic;
+        deviceOutput        : in  std_logic_vector(7 downto 0);
+        send          : in  std_logic;        -- Send trigger
+        valid         : in  std_logic;       -- Receive data valid
+        txDone        : in  std_logic;       -- Transmission complete
+        rxdata        : in  std_logic_vector(7 downto 0);  -- Received data
+        deviceOutputSent      : out std_logic;       -- Send completion
+        deviceInput       : out std_logic_vector(7 downto 0);  -- Received data output
+        deviceInputReady   : out std_logic;       -- Receive completion
+        txNow         : out std_logic;       -- Transmit trigger
+        txdata        : out std_logic_vector(7 downto 0);  -- Data to transmit
+        done: out std_logic;
+        hex_disp: in std_logic;
+        space:    in std_logic
+    );
+end component;
+
+
+	component pr_v2 is
+    port (
+        clk : in std_logic;
+        rst : in std_logic;
+        start : in std_logic; -- from 'main', signals that it's ready to transmit
+        char : in std_logic_vector(7 downto 0); -- 4-character string from main
+        pattern : out std_logic_vector(1 downto 0); -- 2-bit command that informs main of further instructions
+        recogniseDone : out std_logic -- signals to main that the pattern recogniser is ready to receive data
+    );
+	end component;	
+
+    -- signal declaration here
+    signal deviceOutputSent :std_logic;
+    signal deviceInput: std_logic_vector(7 downto 0);
+    signal deviceOutput : std_logic_vector(7 downto 0);
+    signal deviceInputReady: std_logic;
+    signal pr_start: std_logic;
+    signal pattern: std_logic_vector(1 downto 0);
+    signal recogniseDone: std_logic;
+    signal send: std_logic;
+    signal char: std_logic_vector(7 downto 0);
+    signal hex_disp_sig , space_sig: std_logic;
+
     -- Signals for conversion
     signal numWords_signal: std_logic_vector(11 downto 0);
     signal maxIndex_signal: std_logic_vector(11 downto 0);
@@ -95,23 +165,66 @@ begin
     maxIndex_signal <= maxIndex(2) & maxIndex(1) & maxIndex(0);
     dataResults_signal <= dataResults(0) & dataResults(1) & dataResults(2) & dataResults(3) & dataResults(4) & dataResults(5) & dataResults(6);
 
-    cmdProc_struct1: CMD_PROCESSOR_TOP
-    port map (
-          clk => clk,
-          rst => reset,
-          rx_valid => rxnow,
-          data_from_rx => rxData,
-          data_to_tx => txData,
-          rx_done => rxdone,
-          tx_now => txnow,
-          tx_done => txdone,
-          dp_start => start,
-          numWords => numWords_signal,
-          dataReady => dataReady,
-          byte => byte,
-          maxIndex => maxIndex_signal,
-          seqDone => seqDone,
-          dataResults => dataResults_signal
+main_fsm : main
+    port map(
+        -- DP IF
+        clk => clk,
+        rst => reset,
+        dataReady => dataReady,
+        byte => byte,
+        maxIndex => maxIndex_signal,
+        dataResults => dataResults_signal,
+        seqDone => seqDone,
+        dp_start => start,
+        numWords => numWords_signal,
+        
+        -- IO IF
+        deviceOutputSent=> deviceOutputSent,
+        deviceInput => deviceInput,
+        deviceInputReady => deviceInputReady,
+        deviceOutput => deviceOutput,
+        send => send,
+
+        -- pattern recogniser IF
+        pr_start => pr_start,
+        pattern => pattern,
+        recogniseDone => recogniseDone,
+        char => char,
+              
+        hex_disp => hex_disp_sig,
+        space => space_sig
+    
+        
     );
+
+    PR: pr_v2 
+    port map(
+        clk => clk,
+        rst => reset,
+        start => pr_start,
+        char => char,
+        pattern => pattern,
+        recogniseDone => recogniseDone
+    );
+    
+
+    IOXX: IO
+    port map(
+        clk => clk,
+        rst => reset,        
+        deviceOutput => deviceOutput,    
+        send => send,       
+        deviceOutputSent => deviceOutputSent,
+        deviceInput  => deviceInput,   
+        deviceInputReady => deviceInputReady,
+        txNow  => txnow,     
+        txDone => txdone,
+        txdata => txData,
+        valid  => rxnow,
+        rxdata => rxData,     
+        done => rxdone,
+        hex_disp => hex_disp_sig,
+        space => space_sig
+        );
 
 end Behavioral;
