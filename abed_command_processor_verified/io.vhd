@@ -22,9 +22,9 @@ entity IO is
 end IO;
 
 architecture FSM of IO is
-    type state_type is (IDLE, START_TRANSMISSION, SENDING, RECEIVING, START_RECEIVING,
+    type state_type is (IDLE, START_TRANSMISSION, SENDING, START_RECEIVING, ECHO,
                         SEND_HEX_HIGH, WAIT_HEX_HIGH, SEND_HEX_LOW, WAIT_HEX_LOW,
-                        SEND_HEX_SPACE, WAIT_HEX_SPACE, ECHO);
+                        SEND_SPACE, WAIT_SPACE );
     signal current_state, next_state : state_type;
     signal txdata_reg, rxdata_reg: std_logic_vector(7 downto 0) := (others => '0');
     signal hex_high_reg, hex_low_reg : std_logic_vector(3 downto 0) := (others => '0');
@@ -72,14 +72,15 @@ end process;
 -- Next state and output logic
 process(current_state, send, valid, txDone, hex_disp, space, deviceOutput, hex_high_reg, hex_low_reg, space_reg)
 begin
-    -- Default outputs
+    -- defaults
     done <= '0';
     txNow <= '0';
     deviceInputReady <= '0';
     next_state <= current_state;
-    deviceOutputSent <= '1'; -- Default deviceOutputSent is high when not sending
+    deviceOutputSent <= '1'; 
     hex_disp_reg_next <= hex_disp_reg;
     space_reg_next <= space_reg;
+    
     case current_state is
         when IDLE =>
             if send = '1' then
@@ -112,8 +113,6 @@ begin
             deviceOutputSent <= '0';
             if txDone = '1' then
                 next_state <= SEND_HEX_LOW;
-            else
-                next_state <= WAIT_HEX_HIGH;
             end if;
 
         when SEND_HEX_LOW =>
@@ -126,38 +125,35 @@ begin
             deviceOutputSent <= '0';
             if txDone = '1' then
                 if space_reg = '1' then
-                    next_state <= SEND_HEX_SPACE;
+                    next_state <= SEND_SPACE;
                 else
                     next_state <= IDLE;
                 end if;
-            else
-                next_state <= WAIT_HEX_LOW;
+
             end if;
 
-        when SEND_HEX_SPACE =>
+        when SEND_SPACE =>
             deviceOutputSent <= '0';
             txdata_reg <= x"20"; -- ASCII space
             txNow <= '1';
-            next_state <= WAIT_HEX_SPACE;
+            next_state <= WAIT_SPACE;
 
-        when WAIT_HEX_SPACE =>
+        when WAIT_SPACE =>
             deviceOutputSent <= '0';
             if txDone = '1' then
                 next_state <= IDLE;
-            else
-                next_state <= WAIT_HEX_SPACE;
+
             end if;
 
         when SENDING =>
             deviceOutputSent <= '0';
             if txDone = '1' then
                 if space_reg = '1' then
-                    next_state <= SEND_HEX_SPACE;
+                    next_state <= SEND_SPACE;
                 else
                     next_state <= IDLE;
                 end if;
-            else 
-                next_state <= SENDING;
+
             end if;
 
         when START_RECEIVING =>
@@ -172,17 +168,14 @@ begin
                 done <= '1';
                 deviceInputReady <= '1';
                 next_state <= IDLE;
-            else 
-                next_state <= ECHO;
+
             end if;
-    
-        when others =>
-            next_state <= IDLE;
+
 
     end case;
 end process;
 
--- Output assignments
+-- output mapping
 txdata <= txdata_reg;
 deviceInput <= rxdata_reg;
 
