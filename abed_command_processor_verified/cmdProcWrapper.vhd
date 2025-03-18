@@ -83,7 +83,7 @@ architecture Behavioral of cmdProc is
     end component;
 
 
-component main is
+component Controller is
   port(
     clk,rst: in std_logic;
     deviceOutputSent: in std_logic;
@@ -129,14 +129,14 @@ component IO is
 end component;
 
 
-	component pr_v2 is
+	component pr is
     port (
         clk : in std_logic;
         rst : in std_logic;
-        start : in std_logic; -- from 'main', signals that it's ready to transmit
-        char : in std_logic_vector(7 downto 0); -- 4-character string from main
-        pattern : out std_logic_vector(1 downto 0); -- 2-bit command that informs main of further instructions
-        recogniseDone : out std_logic -- signals to main that the pattern recogniser is ready to receive data
+        start : in std_logic; 
+        char : in std_logic_vector(7 downto 0); 
+        pattern : out std_logic_vector(1 downto 0); 
+        recogniseDone : out std_logic 
     );
 	end component;	
 
@@ -165,7 +165,7 @@ begin
     maxIndex_signal <= maxIndex(2) & maxIndex(1) & maxIndex(0);
     dataResults_signal <= dataResults(0) & dataResults(1) & dataResults(2) & dataResults(3) & dataResults(4) & dataResults(5) & dataResults(6);
 
-main_fsm : main
+main_fsm : Controller
     port map(
         -- DP IF
         clk => clk,
@@ -197,7 +197,7 @@ main_fsm : main
         
     );
 
-    PR: pr_v2 
+    PattR: pr 
     port map(
         clk => clk,
         rst => reset,
