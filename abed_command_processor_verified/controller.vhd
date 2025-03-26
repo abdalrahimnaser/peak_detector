@@ -2,6 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
 use ieee.numeric_std.all;
+use work.common_pack.all;
 
 entity Controller is
   port(
@@ -15,7 +16,7 @@ entity Controller is
     send: out std_logic;
     hex_disp: out std_logic;
     space:    out std_logic;
-    
+    newline:  out std_logic;
     -- PR interface
     pattern: in std_logic_vector(1 downto 0);
     recogniseDone: in std_logic;
@@ -26,7 +27,7 @@ entity Controller is
     dataReady: in std_logic;
     byte: in std_logic_vector(7 downto 0);
     maxIndex: in std_logic_vector(11 downto 0);
-    dataResults: in std_logic_vector(55 downto 0);
+    dataResults:  in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
     seqDone: in std_logic;
     dp_start: out std_logic;
     numWords: out std_logic_vector(11 downto 0)
@@ -35,14 +36,14 @@ entity Controller is
 end Controller; 
 
 architecture FSM of Controller is
-  type state_type is (IDLE, PATTERN_RECOGNISED, PATTERN_0, PATTERN_1, PATTERN_2);
+  type state_type is (IDLE, PATTERN_RECOGNISED, PATTERN_0, PATTERN_1, PATTERN_2, SEPERATOR);
   signal current_state, next_state : state_type; 
-  signal dp_start_reg, pr_start_reg, send_reg : std_logic;
+  signal dp_start_reg, pr_start_reg, send_reg, newline_reg : std_logic;
   signal char_reg                               : std_logic_vector(31 downto 0) := (others => '0');
   signal deviceOutput_current, deviceOutput_next                            : std_logic_vector(7 downto 0):=(others => '0'); --do this for the rest
   signal num2, num1, num0                      : std_logic_vector(3 downto 0);
   signal num5, num4, num3                      : std_logic_vector(7 downto 0);
-  signal dataResults_reg,dataResults_reg_next                       : std_logic_vector(55 downto 0) := (others => '0');
+  signal dataResults_reg,dataResults_reg_next  : CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
   signal maxIndex_reg, maxIndex_reg_next                          : std_logic_vector(11 downto 0) := (others => '0');
   signal tmp5, tmp4, tmp3                      : std_logic_vector(7 downto 0);
   signal counter                               : integer := 0;
@@ -51,6 +52,7 @@ architecture FSM of Controller is
   signal test_reg : std_logic_vector(7 downto 0);
   signal pattern_reg: std_logic_vector(1 downto 0);
   signal hex_disp_reg, space_reg : std_logic := '0';
+  signal deviceOutputSent_delayed: std_logic;
 begin
 
 
@@ -75,15 +77,18 @@ begin
     if rising_edge(clk) then
         if rst = '1' then
             current_state <= IDLE;
+            deviceOutputSent_delayed <= '1';
         else 
             current_state <= next_state;
             deviceOutput_current <= deviceOutput_next;
             pattern_0_current <= pattern_0_next;
             maxIndex_reg <= maxIndex_reg_next;
             dataResults_reg <= dataResults_reg_next;
+            deviceOutputSent_delayed <=deviceOutputSent;
         end if;
     end if;
 end process;
+
 
 -- counter process
 process(clk)
@@ -117,6 +122,7 @@ begin
     send_reg <= '0';
     hex_disp_reg <= '0';
     space_reg <= '0';
+    newline_reg <= '0';
     en_cnt <= '0';
     rst_cnt<= '1';
     next_state <= current_state;
@@ -133,6 +139,7 @@ begin
 
             if recogniseDone = '1' then 
                 next_state <= PATTERN_RECOGNISED;
+--                newline_reg <= '1';
             end if;
 
         when PATTERN_RECOGNISED =>
@@ -146,8 +153,9 @@ begin
                 else   
                         next_state <= IDLE;
                 end if;
-
-        when PATTERN_0 =>
+                
+                
+    when PATTERN_0 =>
             dp_start_reg <= '1';
             send_reg <= '1';
             space_reg <= '1';
@@ -170,64 +178,82 @@ begin
                 next_state <= IDLE;
 --                send_reg <= '1'; --since it will go zero at idle
            end if;
+           
+        when SEPERATOR =>
+--            newline_reg <= '1';
+--            if deviceOutputSent = '1' then
+                next_state <= IDLE;
+--            end if;
+
+
+    when PATTERN_1 =>
+        rst_cnt <= '0';
+        send_reg <= '0';
+        en_cnt <= '0';  -- Default to 0, only set on rising edge
+        space_reg <= '0';
+        hex_disp_reg <= '0';        
+        
+        if deviceOutputSent = '1' then
+                    send_reg <= '1';
+                en_cnt <= '1';
+        case counter is
+            when 0 =>
+                deviceOutput_next <= dataResults_reg(3);
+                space_reg <= '1';
+                hex_disp_reg <= '1';
+            when 1 =>
+                deviceOutput_next <= num5;
+            when 2 =>
+                deviceOutput_next <= num4;
+            when 3 =>
+                deviceOutput_next <= num3;
+            when others =>
+                next_state <= IDLE;
+                send_reg <= '0';
+        end case;
+        end if;
     
-        when PATTERN_1 =>
-                rst_cnt <= '0';
-                send_reg <= '1';
-                space_reg <= '0';
-                hex_disp_reg <= '0';
-                en_cnt <= '1';     
-                      
-                if deviceOutputSent = '0' then
-                    en_cnt <= '0';
-                    send_reg <= '0';
-                end if;              
-                 
-                if counter = 0 then
-                    deviceOutput_next <= dataResults_reg(31 downto 24);
-                    space_reg <= '1';
-                    hex_disp_reg <= '1';
-                elsif counter = 1 then
-                    deviceOutput_next <= num4;
-                elsif counter = 2 then
-                    deviceOutput_next <= num5;
-                elsif counter = 3 then
-                    deviceOutput_next <= num5;
-                    space_reg <= '1';
-                else 
-                    next_state <= IDLE;
-                end if;
+
 
        when PATTERN_2 =>
             rst_cnt <= '0';
-            send_reg <= '1';
-            en_cnt <= '1'; 
+            send_reg <= '0';
+            en_cnt <= '0';  -- Default to 0, only set on rising edge
             space_reg <= '1';
             hex_disp_reg <= '1';
-                      
-            if deviceOutputSent = '0' then
-                en_cnt <= '0';
-                send_reg <= '0';
-            end if;  
             
-            if counter = 0 then
-                    deviceOutput_next <= dataResults_reg(55 downto 48);
-                elsif counter = 1 then
-                    deviceOutput_next <= dataResults_reg(47 downto 40);
-                elsif counter = 2 then
-                    deviceOutput_next <= dataResults_reg(39 downto 32);
-                elsif counter = 3 then
-                    deviceOutput_next <= dataResults_reg(31 downto 24);
-               elsif counter = 4 then
-                    deviceOutput_next <= dataResults_reg(23 downto 16);
-               elsif counter = 5 then
-                    deviceOutput_next <= dataResults_reg(15 downto 8);
-                elsif counter = 6 then 
-                    deviceOutput_next <= dataResults_reg(7 downto 0);
-                else
-                    next_state <= IDLE;
-                end if;
-                
+--            -- Detect rising edge of deviceOutputSent to increment counter
+--            if (deviceOutputSent = '1' and deviceOutputSent_delayed = '0') then
+--                en_cnt <= '1';
+--            end if;
+            
+--            if deviceOutputSent = '0' then
+--                send_reg <= '0';
+--            end if;
+        if   deviceOutputSent = '1' then  
+                send_reg <= '1';
+                en_cnt <= '1';
+
+        case counter is
+            when 0 =>
+                deviceOutput_next <= dataResults_reg(0);
+            when 1 =>
+                deviceOutput_next <= dataResults_reg(1);
+            when 2 =>
+                deviceOutput_next <= dataResults_reg(2);
+            when 3 =>
+                deviceOutput_next <= dataResults_reg(3);
+            when 4 =>
+                deviceOutput_next <= dataResults_reg(4);
+            when 5 =>
+                deviceOutput_next <= dataResults_reg(5);
+            when 6 =>
+                deviceOutput_next <= dataResults_reg(6);
+            when others =>
+                next_state <= IDLE;
+                send_reg <= '0';
+        end case;
+        end if;
     end case;
 
 end process;
@@ -243,6 +269,6 @@ char <= deviceInput;
 numWords <= num2&num1&num0;
 hex_disp <= hex_disp_reg;
 space <= space_reg;             
-
+newline <= newline_reg;
 
 end FSM;
