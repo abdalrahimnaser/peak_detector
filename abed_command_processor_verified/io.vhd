@@ -17,14 +17,17 @@ entity IO is
         txdata        : out std_logic_vector(7 downto 0);  -- Data to transmit
         done: out std_logic;
         hex_disp: in std_logic;
-        space:    in std_logic
+        space:    in std_logic;
+        newline:  in std_logic
     );
 end IO;
 
 architecture FSM of IO is
     type state_type is (IDLE, START_TRANSMISSION, SENDING, START_RECEIVING, ECHO,
                         SEND_HEX_HIGH, WAIT_HEX_HIGH, SEND_HEX_LOW, WAIT_HEX_LOW,
-                        SEND_SPACE, WAIT_SPACE );
+                        SEND_SPACE, WAIT_SPACE,
+                        SEND_CR, WAIT_CR,SEND_LF, WAIT_LF, WAIT_ECHO
+                        );
     signal current_state, next_state : state_type;
     signal txdata_reg, rxdata_reg: std_logic_vector(7 downto 0) := (others => '0');
     signal hex_high_reg, hex_low_reg : std_logic_vector(3 downto 0) := (others => '0');
@@ -70,7 +73,7 @@ begin
 end process;
 
 -- Next state and output logic
-process(current_state, send, valid, txDone, hex_disp, space, deviceOutput, hex_high_reg, hex_low_reg, space_reg)
+process(current_state, send, newline,valid, txDone, hex_disp, space, deviceOutput, hex_high_reg, hex_low_reg, space_reg)
 begin
     -- defaults
     done <= '0';
@@ -83,14 +86,40 @@ begin
     
     case current_state is
         when IDLE =>
-            if send = '1' then
+            if newline = '1' then
+                next_state <= SEND_CR;
+            elsif send = '1' then
                 next_state <= START_TRANSMISSION;
                 space_reg_next <= space;
                 hex_disp_reg_next <= hex_disp;
             elsif valid = '1' then 
                 next_state <= START_RECEIVING;
             end if;
+            
+        when SEND_CR =>
+            deviceOutputSent <= '0';
+            txdata_reg <= x"0D";  -- Carriage Return (CR)
+            txNow <= '1';
+            next_state <= WAIT_CR;
 
+        when WAIT_CR =>
+            deviceOutputSent <= '0';
+            if txDone = '1' then
+                next_state <= SEND_LF;
+            end if;
+
+        when SEND_LF =>
+            deviceOutputSent <= '0';
+            txdata_reg <= x"0A";  -- Line Feed (LF)
+            txNow <= '1';
+            next_state <= WAIT_LF;
+
+        when WAIT_LF =>
+            deviceOutputSent <= '0';
+            if txDone = '1' then
+                next_state <= IDLE;
+            end if;
+            
         when START_TRANSMISSION =>
             deviceOutputSent <= '0';
             if hex_disp_reg = '1' then
@@ -165,13 +194,15 @@ begin
         when ECHO =>
             deviceOutputSent <= '0';
             if txDone = '1' then
-                done <= '1';
-                deviceInputReady <= '1';
-                next_state <= IDLE;
-
+                next_state <= WAIT_ECHO;
             end if;
-
-
+        
+       when WAIT_ECHO =>
+            deviceOutputSent <= '0';
+            done <= '1';
+            deviceInputReady <= '1';
+            next_state <= IDLE; 
+               
     end case;
 end process;
 
