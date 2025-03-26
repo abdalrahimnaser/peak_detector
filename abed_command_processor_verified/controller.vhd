@@ -36,7 +36,7 @@ entity Controller is
 end Controller; 
 
 architecture FSM of Controller is
-  type state_type is (IDLE, PATTERN_RECOGNISED, PATTERN_0, PATTERN_1, PATTERN_2, SEPERATOR);
+  type state_type is (IDLE, PATTERN_RECOGNISED, PATTERN_0, PATTERN_1, PATTERN_2, TEMP);
   signal current_state, next_state : state_type; 
   signal dp_start_reg, pr_start_reg, send_reg, newline_reg : std_logic;
   signal char_reg                               : std_logic_vector(31 downto 0) := (others => '0');
@@ -139,7 +139,7 @@ begin
 
             if recogniseDone = '1' then 
                 next_state <= PATTERN_RECOGNISED;
---                newline_reg <= '1';
+                newline_reg <= '1';
             end if;
 
         when PATTERN_RECOGNISED =>
@@ -173,17 +173,14 @@ begin
            if seqDone = '1' then
                 maxIndex_reg_next <= maxIndex;
                 dataResults_reg_next <= dataResults;
---                deviceOutput_next <= x"0D"; -- carriage return and line feed CRLF (TODO: add this as a feature in IO)
-                hex_disp_reg <= '0';   
-                next_state <= IDLE;
---                send_reg <= '1'; --since it will go zero at idle
+                next_state <= TEMP;
            end if;
-           
-        when SEPERATOR =>
---            newline_reg <= '1';
---            if deviceOutputSent = '1' then
-                next_state <= IDLE;
---            end if;
+
+    when TEMP =>
+        if deviceOutputSent = '1' then
+            newline_reg <= '1';
+            next_state <= IDLE;
+        end if;
 
 
     when PATTERN_1 =>
@@ -210,6 +207,7 @@ begin
             when others =>
                 next_state <= IDLE;
                 send_reg <= '0';
+                newline_reg <= '1';
         end case;
         end if;
     
@@ -252,6 +250,7 @@ begin
             when others =>
                 next_state <= IDLE;
                 send_reg <= '0';
+                newline_reg <= '1';
         end case;
         end if;
     end case;
