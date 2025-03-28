@@ -1,3 +1,14 @@
+----------------------------------------------------------------------------------
+-- Institution: University of Bristol 
+-- Student: Ben Jack
+
+-- Description: pattern recognision unit - identifies the following commands 
+-- (ANNN/aNNN -> pattern 0), (p/P -> pattern 1) ,(l/L -> pattern 2), (invalid -> pattern 3)
+-- Module Name: pr - Behavioral
+-- Project Name: Peak Detector
+-- Target Devices: artix-7 35t cpg236-1
+----------------------------------------------------------------------------------
+
 library IEEE;
 use IEEE.numeric_std.all;
 use IEEE.std_logic_1164.all;
