@@ -36,7 +36,7 @@ entity Controller is
 end Controller; 
 
 architecture FSM of Controller is
-  type state_type is (IDLE, PATTERN_RECOGNISED, PATTERN_0, PATTERN_1, PATTERN_2, TEMP);
+  type state_type is (IDLE, PATTERN_RECOGNISED,PATTERN_0, PATTERN_1, PATTERN_2, TEMP);
   signal current_state, next_state : state_type; 
   signal dp_start_reg, pr_start_reg, send_reg, newline_reg : std_logic;
   signal char_reg                               : std_logic_vector(31 downto 0) := (others => '0');
@@ -143,7 +143,6 @@ begin
             end if;
 
         when PATTERN_RECOGNISED =>
-                -- TODO: replace if with case
                 if    pattern = "00" then 
                         next_state <= PATTERN_0;
                 elsif pattern = "01" then  
@@ -154,27 +153,34 @@ begin
                         next_state <= IDLE;
                 end if;
                 
+--    when wait_pattern_0 =>
+--         dp_start_reg <= '1';
+--         next_state <= PATTERN_0;
                 
     when PATTERN_0 =>
             dp_start_reg <= '1';
-            send_reg <= '1';
+            send_reg <= '0';
             space_reg <= '1';
             hex_disp_reg <= '1';   
             
             if deviceOutputSent = '0' then
                 dp_start_reg <= '0';
-                send_reg <= '0';
             end if;
             
             if dataReady = '1' then
                 deviceOutput_next <= byte;
+                send_reg <= '1';
+                dp_start_reg <= '0';
             end if;
+            
+
             
            if seqDone = '1' then
                 maxIndex_reg_next <= maxIndex;
                 dataResults_reg_next <= dataResults;
                 next_state <= TEMP;
            end if;
+
 
     when TEMP =>
         if deviceOutputSent = '1' then
