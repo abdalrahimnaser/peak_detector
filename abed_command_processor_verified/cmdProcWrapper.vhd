@@ -1,35 +1,17 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
+-- Institution: University of Bristol 
+-- Student: Abdalrahim Naser
 -- 
--- Create Date: 01.02.2019 21:00:29
--- Design Name: 
+-- Description: Command Processor top-level Wrapper 
 -- Module Name: cmdProc - Behavioral
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
+-- Project Name: Peak Detector
+-- Target Devices: artix-7 35t cpg236-1
 ----------------------------------------------------------------------------------
 
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use work.common_pack.all;
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
 
 entity cmdProc is
 port (
@@ -55,76 +37,56 @@ end cmdProc;
 
 architecture Behavioral of cmdProc is
 
-    component CMD_PROCESSOR_TOP is
-     port(
-    -- general:
-    clk,rst: in std_logic;
-
-    -- tx interface:
-    tx_done: in std_logic;
-    data_to_tx: out std_logic_vector(7 downto 0);
-    tx_now: out std_logic;
-
-    -- rx interface:
-    data_from_rx: in std_logic_vector(7 downto 0);
-    rx_valid: in std_logic;
-    rx_done: out std_logic;
-
-    -- data processor 
-    dataReady: in std_logic;
-    byte: in std_logic_vector(7 downto 0);
-    maxIndex: in std_logic_vector(11 downto 0);
-    dataResults: in std_logic_vector(55 downto 0);
-    seqDone: in std_logic;
-    dp_start: out std_logic;
-    numWords: out std_logic_vector(11 downto 0)
-  );
-    
-    end component;
-
-
 component Controller is
   port(
     clk,rst: in std_logic;
-    deviceOutputSent: in std_logic;
-    deviceInput: in std_logic_vector(7 downto 0);
-    deviceInputReady: in std_logic;
-    pattern: in std_logic_vector(1 downto 0);
-    recogniseDone: in std_logic;
+    
+    -- io interface
+    deviceOutput: out std_logic_vector(7 downto 0);     -- 8-bit UART output data
+    deviceOutputSent: in std_logic;                     -- indicates output is sent and ready for next send operation
+    deviceInput: in std_logic_vector(7 downto 0);       -- 8-bit UART input data
+    deviceInputReady: in std_logic;                     -- input received
+    send: out std_logic;                                -- initiate data sending
+    hex_disp: out std_logic;                            -- enables hexadecimal display mode
+    space:    out std_logic;                            -- outputs a space character after a send operation
+    newline:  out std_logic;                            -- prints new line
+    
+    -- PR interface
+    pattern: in std_logic_vector(1 downto 0);           -- pattern identifier
+    recogniseDone: in std_logic;                        -- pattern recognition op complete
+    char: out std_logic_vector(7 downto 0);             -- character output to PR
+    pr_start: out std_logic;                            -- start pattern recognition
+
+    -- DP interface
     dataReady: in std_logic;
-    byte: in std_logic_vector(7 downto 0);
-    maxIndex: in std_logic_vector(11 downto 0);
-    dataResults: in std_logic_vector(55 downto 0);
-    seqDone: in std_logic;
-    ------------------------
-    dp_start: out std_logic;
-    numWords: out std_logic_vector(11 downto 0);
-    deviceOutput: out std_logic_vector(7 downto 0);
-    send: out std_logic;
-    pr_start: out std_logic;
-    char: out std_logic_vector(7 downto 0);
-    hex_disp: out std_logic;
-    space:    out std_logic
+    byte: in std_logic_vector(7 downto 0);              -- byte is valid to read
+    maxIndex: in BCD_ARRAY_TYPE(2 downto 0);            -- byte data
+    dataResults:  in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1); -- results array (XXXpeakXXX)  
+    seqDone: in std_logic;                              -- sequence processing complete
+    dp_start: out std_logic;                            -- initiate/resume DP
+    numWords_bcd: out BCD_ARRAY_TYPE(2 downto 0)        -- number of bytes to retrieve
   );
+  
 	end component;  
 
 component IO is
-     port (
+    port (
         clk           : in  std_logic;
         rst           : in  std_logic;
         deviceOutput        : in  std_logic_vector(7 downto 0);
-        send          : in  std_logic;        -- Send trigger
-        valid         : in  std_logic;       -- Receive data valid
-        txDone        : in  std_logic;       -- Transmission complete
-        rxdata        : in  std_logic_vector(7 downto 0);  -- Received data
-        deviceOutputSent      : out std_logic;       -- Send completion
-        deviceInput       : out std_logic_vector(7 downto 0);  -- Received data output
-        deviceInputReady   : out std_logic;       -- Receive completion
-        txNow         : out std_logic;       -- Transmit trigger
-        txdata        : out std_logic_vector(7 downto 0);  -- Data to transmit
+        send          : in  std_logic;        -- send trigger
+        valid         : in  std_logic;       -- receive data valid
+        txDone        : in  std_logic;       -- transmission complete
+        rxdata        : in  std_logic_vector(7 downto 0);  -- received data
+        deviceOutputSent      : out std_logic;       -- send completion
+        deviceInput       : out std_logic_vector(7 downto 0);  -- received data output
+        deviceInputReady   : out std_logic;       -- receive completion
+        txNow         : out std_logic;       -- transmit trigger
+        txdata        : out std_logic_vector(7 downto 0);  -- data to transmit
         done: out std_logic;
         hex_disp: in std_logic;
-        space:    in std_logic
+        space:    in std_logic;
+        newline:  in std_logic
     );
 end component;
 
@@ -140,7 +102,7 @@ end component;
     );
 	end component;	
 
-    -- signal declaration here
+    -- connecting wires/signals
     signal deviceOutputSent :std_logic;
     signal deviceInput: std_logic_vector(7 downto 0);
     signal deviceOutput : std_logic_vector(7 downto 0);
@@ -149,21 +111,11 @@ end component;
     signal pattern: std_logic_vector(1 downto 0);
     signal recogniseDone: std_logic;
     signal send: std_logic;
-    signal char: std_logic_vector(7 downto 0);
-    signal hex_disp_sig , space_sig: std_logic;
 
-    -- Signals for conversion
-    signal numWords_signal: std_logic_vector(11 downto 0);
-    signal maxIndex_signal: std_logic_vector(11 downto 0);
-    signal dataResults_signal: std_logic_vector(55 downto 0);
+    signal char: std_logic_vector(7 downto 0);
+    signal hex_disp_sig , space_sig, newline_sig: std_logic;
 
 begin
-    -- Assigning signals
-    numWords_bcd(2) <= numWords_signal(11 downto 8);  -- Hundreds place
-    numWords_bcd(1) <= numWords_signal(7 downto 4);   -- Tens place
-    numWords_bcd(0) <= numWords_signal(3 downto 0);   -- Units place    maxIndex_signal <= maxIndex(2) & maxIndex(1) & maxIndex(0);
-    maxIndex_signal <= maxIndex(2) & maxIndex(1) & maxIndex(0);
-    dataResults_signal <= dataResults(0) & dataResults(1) & dataResults(2) & dataResults(3) & dataResults(4) & dataResults(5) & dataResults(6);
 
 main_fsm : Controller
     port map(
@@ -172,11 +124,11 @@ main_fsm : Controller
         rst => reset,
         dataReady => dataReady,
         byte => byte,
-        maxIndex => maxIndex_signal,
-        dataResults => dataResults_signal,
+        maxIndex => maxIndex,
+        dataResults => dataResults,
         seqDone => seqDone,
         dp_start => start,
-        numWords => numWords_signal,
+        numWords_bcd => numWords_bcd,
         
         -- IO IF
         deviceOutputSent=> deviceOutputSent,
@@ -184,17 +136,16 @@ main_fsm : Controller
         deviceInputReady => deviceInputReady,
         deviceOutput => deviceOutput,
         send => send,
-
-        -- pattern recogniser IF
+        newline => newline_sig,
+        
+        -- PR IF
         pr_start => pr_start,
         pattern => pattern,
         recogniseDone => recogniseDone,
         char => char,
               
         hex_disp => hex_disp_sig,
-        space => space_sig
-    
-        
+        space => space_sig    
     );
 
     PattR: pr 
@@ -224,7 +175,8 @@ main_fsm : Controller
         rxdata => rxData,     
         done => rxdone,
         hex_disp => hex_disp_sig,
-        space => space_sig
+        space => space_sig,
+        newline => newline_sig
         );
 
 end Behavioral;
