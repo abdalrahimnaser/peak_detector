@@ -1,6 +1,6 @@
 ----------------------------------------------------------------------------------
 -- Institution: University of Bristol 
--- Student: Abdalrahim Naser
+-- Student: Abdalrahim Naser & Ben Jack
 -- 
 -- Description: UART input-output handling unit
 -- Module Name: IO - Behavioral
