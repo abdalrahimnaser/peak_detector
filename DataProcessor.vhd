@@ -24,7 +24,7 @@ end dataConsume;
 
 architecture behavioural of dataConsume is
     --All signals declared
-    type state_cmd is (WAIT_S, INIT, OUTPUT_STATE, INIT_START, PENDING, START_P, WAIT_START,PEAK_STAGE_1, PEAK_STAGE_2, PEAK_STAGE_3, FINISHED);
+    type state_cmd is (WAIT_S, INIT, OUTPUT_STATE, INIT_START, PENDING, START_P, WAIT_START,PEAK_STAGE_1, PEAK_STAGE_2, PEAK_STAGE_3, FINISHED, DATA_R_TRANS);
 
     signal curState : state_cmd := INIT;
     signal nextState : state_cmd := INIT;
@@ -88,6 +88,7 @@ architecture behavioural of dataConsume is
                 else
                     nextState <= INIT;
                 end if;
+                   
                     
             when OUTPUT_STATE =>
                 nextState <= INIT_START;
@@ -104,11 +105,15 @@ architecture behavioural of dataConsume is
                 
             when START_P =>  
                 if reg_Count < reg_numWords then
-                    nextState <= WAIT_START;
+                    nextState <= DATA_R_TRANS;
                 else
                     nextState <= PEAK_STAGE_1;
                 end if;
-            
+                
+            when DATA_R_TRANS => -- transitionary state to allow dataReady available for one cycle
+                nextState <= WAIT_START;
+
+       
             when PEAK_STAGE_1 =>
                 nextState <= PEAK_STAGE_2;
             
