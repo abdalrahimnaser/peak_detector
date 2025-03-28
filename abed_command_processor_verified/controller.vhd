@@ -1,3 +1,13 @@
+----------------------------------------------------------------------------------
+-- Institution: University of Bristol 
+-- Student: Abdalrahim Naser
+-- 
+-- Description: Main control unit of the command processor 
+-- Module Name: Controller - Behavioral
+-- Project Name: Peak Detector
+-- Target Devices: artix-7 35t cpg236-1
+----------------------------------------------------------------------------------
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_unsigned.all;
@@ -9,49 +19,53 @@ entity Controller is
     clk,rst: in std_logic;
     
     -- io interface
-    deviceOutputSent: in std_logic;
-    deviceInput: in std_logic_vector(7 downto 0);
-    deviceInputReady: in std_logic;
-    deviceOutput: out std_logic_vector(7 downto 0);
-    send: out std_logic;
-    hex_disp: out std_logic;
-    space:    out std_logic;
-    newline:  out std_logic;
+    deviceOutput: out std_logic_vector(7 downto 0);     -- 8-bit UART output data
+    deviceOutputSent: in std_logic;                     -- indicates output is sent and ready for next send operation
+    deviceInput: in std_logic_vector(7 downto 0);       -- 8-bit UART input data
+    deviceInputReady: in std_logic;                     -- input received
+    send: out std_logic;                                -- initiate data sending
+    hex_disp: out std_logic;                            -- enables hexadecimal display mode
+    space:    out std_logic;                            -- outputs a space character after a send operation
+    newline:  out std_logic;                            -- prints new line
     
     -- PR interface
-    pattern: in std_logic_vector(1 downto 0);
-    recogniseDone: in std_logic;
-    char: out std_logic_vector(7 downto 0);
-    pr_start: out std_logic;
+    pattern: in std_logic_vector(1 downto 0);           -- pattern identifier
+    recogniseDone: in std_logic;                        -- pattern recognition op complete
+    char: out std_logic_vector(7 downto 0);             -- character output to PR
+    pr_start: out std_logic;                            -- start pattern recognition
 
     -- DP interface
     dataReady: in std_logic;
-    byte: in std_logic_vector(7 downto 0);
-    maxIndex: in std_logic_vector(11 downto 0);
-    dataResults:  in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
-    seqDone: in std_logic;
-    dp_start: out std_logic;
-    numWords: out std_logic_vector(11 downto 0)
+    byte: in std_logic_vector(7 downto 0);              -- byte is valid to read
+    maxIndex: in BCD_ARRAY_TYPE(2 downto 0);            -- byte data
+    dataResults:  in CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1); -- results array (XXXpeakXXX)  
+    seqDone: in std_logic;                              -- sequence processing complete
+    dp_start: out std_logic;                            -- initiate/resume DP
+    numWords_bcd: out BCD_ARRAY_TYPE(2 downto 0)        -- number of bytes to retrieve
   );
 end Controller; 
 
 architecture FSM of Controller is
+  -- state machine defintion
   type state_type is (IDLE, PATTERN_RECOGNISED, PATTERN_0, PATTERN_1, PATTERN_2, SEPERATOR_0, SEPERATOR_1, COUNTER_RESET);
   signal current_state, next_state : state_type; 
-  signal dp_start_reg, pr_start_reg, send_reg, newline_reg : std_logic;
+  
+  -- control signals
+  signal dp_start_reg, pr_start_reg, send_reg, newline_reg, hex_disp_reg, space_reg: std_logic;
+  signal counter                               : integer := 0;
+  signal en_cnt,rst_cnt : std_logic:='0';
+
+  -- data regs
   signal char_reg                               : std_logic_vector(31 downto 0) := (others => '0');
   signal deviceOutput_current, deviceOutput_next                            : std_logic_vector(7 downto 0):=(others => '0'); --do this for the rest
+  signal dataResults_reg,dataResults_reg_next  : CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
+  signal maxIndex_reg, maxIndex_reg_next       : BCD_ARRAY_TYPE(2 downto 0);
+  
+  -- conversion signals  
   signal num2, num1, num0                      : std_logic_vector(3 downto 0);
   signal num5, num4, num3                      : std_logic_vector(7 downto 0);
-  signal dataResults_reg,dataResults_reg_next  : CHAR_ARRAY_TYPE(0 to RESULT_BYTE_NUM-1);
-  signal maxIndex_reg, maxIndex_reg_next                          : std_logic_vector(11 downto 0) := (others => '0');
-  signal tmp5, tmp4, tmp3                      : std_logic_vector(7 downto 0);
-  signal counter                               : integer := 0;
-  signal pattern_0_current, pattern_0_next: std_logic_vector(15 downto 0);
-  signal en_cnt,rst_cnt : std_logic:='0';
-  signal test_reg : std_logic_vector(7 downto 0);
-  signal pattern_reg: std_logic_vector(1 downto 0);
-  signal hex_disp_reg, space_reg : std_logic := '0';
+  signal tmp2, tmp1, tmp0                      : std_logic_vector(7 downto 0);
+
 begin
 
 
@@ -61,13 +75,13 @@ num1 <= std_logic_vector(resize(unsigned(char_reg(15 downto 8))  - 48, 4));
 num0 <= std_logic_vector(resize(unsigned(char_reg(7 downto 0))   - 48, 4));
 
 -- BCD to ASCII conversion (maxIndex_reg: 12-bit binary to 3 ASCII bytes)
-tmp5 <= "0000" & maxIndex_reg(11 downto 8);
-tmp4 <= "0000" & maxIndex_reg(7 downto 4);
-tmp3 <= "0000" & maxIndex_reg(3 downto 0);
+tmp2 <= "0000" & maxIndex_reg(2);
+tmp1 <= "0000" & maxIndex_reg(1);
+tmp0 <= "0000" & maxIndex_reg(0);
 
-num5 <= std_logic_vector(unsigned(tmp5) + 48);
-num4 <= std_logic_vector(unsigned(tmp4) + 48);
-num3 <= std_logic_vector(unsigned(tmp3) + 48);
+num5 <= std_logic_vector(unsigned(tmp2) + 48);
+num4 <= std_logic_vector(unsigned(tmp1) + 48);
+num3 <= std_logic_vector(unsigned(tmp0) + 48);
 
 
 -- register transition
@@ -79,7 +93,6 @@ begin
         else 
             current_state <= next_state;
             deviceOutput_current <= deviceOutput_next;
-            pattern_0_current <= pattern_0_next;
             maxIndex_reg <= maxIndex_reg_next;
             dataResults_reg <= dataResults_reg_next;
         end if;
@@ -125,7 +138,6 @@ begin
     next_state <= current_state;
     maxIndex_reg_next <= maxIndex_reg;
     dataResults_reg_next <= dataResults_reg;
-    pattern_0_next <= pattern_0_current;
     deviceOutput_next <= deviceOutput_current;
     
      case current_state is
@@ -266,12 +278,14 @@ end process;
 dp_start <= dp_start_reg;
 pr_start <= pr_start_reg;
 send     <= send_reg;
-deviceOutput   <= deviceOutput_current;
+deviceOutput <= deviceOutput_current;
 char <= deviceInput;
-numWords <= num2&num1&num0;
 hex_disp <= hex_disp_reg;
 space <= space_reg;             
 newline <= newline_reg;
 
+numWords_bcd(2) <= num2;
+numWords_bcd(1) <= num1;
+numWords_bcd(0) <= num0;
 
 end FSM;
