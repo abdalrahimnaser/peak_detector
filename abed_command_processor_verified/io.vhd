@@ -1,3 +1,14 @@
+----------------------------------------------------------------------------------
+-- Institution: University of Bristol 
+-- Student: Abdalrahim Naser
+-- 
+-- Description: UART input-output handling unit
+-- Module Name: IO - Behavioral
+-- Project Name: Peak Detector
+-- Target Devices: artix-7 35t cpg236-1
+----------------------------------------------------------------------------------
+
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
@@ -6,15 +17,15 @@ entity IO is
         clk           : in  std_logic;
         rst           : in  std_logic;
         deviceOutput        : in  std_logic_vector(7 downto 0);
-        send          : in  std_logic;        -- Send trigger
-        valid         : in  std_logic;       -- Receive data valid
-        txDone        : in  std_logic;       -- Transmission complete
-        rxdata        : in  std_logic_vector(7 downto 0);  -- Received data
-        deviceOutputSent      : out std_logic;       -- Send completion
-        deviceInput       : out std_logic_vector(7 downto 0);  -- Received data output
-        deviceInputReady   : out std_logic;       -- Receive completion
-        txNow         : out std_logic;       -- Transmit trigger
-        txdata        : out std_logic_vector(7 downto 0);  -- Data to transmit
+        send          : in  std_logic;        -- send trigger
+        valid         : in  std_logic;       -- receive data valid
+        txDone        : in  std_logic;       -- transmission complete
+        rxdata        : in  std_logic_vector(7 downto 0);  -- received data
+        deviceOutputSent      : out std_logic;       -- send completion
+        deviceInput       : out std_logic_vector(7 downto 0);  -- received data output
+        deviceInputReady   : out std_logic;       -- receive completion
+        txNow         : out std_logic;       -- transmit trigger
+        txdata        : out std_logic_vector(7 downto 0);  -- data to transmit
         done: out std_logic;
         hex_disp: in std_logic;
         space:    in std_logic;
@@ -23,14 +34,19 @@ entity IO is
 end IO;
 
 architecture FSM of IO is
+    -- state defintion
     type state_type is (IDLE, START_TRANSMISSION, SENDING, START_RECEIVING, ECHO,
                         SEND_HEX_HIGH, WAIT_HEX_HIGH, SEND_HEX_LOW, WAIT_HEX_LOW,
                         SEND_SPACE, WAIT_SPACE,
                         SEND_CR, WAIT_CR,SEND_LF, WAIT_LF, WAIT_ECHO
                         );
     signal current_state, next_state : state_type;
+    
+    -- data regs
     signal txdata_reg, rxdata_reg: std_logic_vector(7 downto 0) := (others => '0');
     signal hex_high_reg, hex_low_reg : std_logic_vector(3 downto 0) := (others => '0');
+    
+    -- control signals
     signal space_reg, hex_disp_reg, space_reg_next, hex_disp_reg_next : std_logic := '0';
     
     function nibble_to_ascii(nibble : std_logic_vector(3 downto 0)) return std_logic_vector is
@@ -58,7 +74,7 @@ architecture FSM of IO is
 
 begin
 
--- State register
+-- register transition
 process(clk)
 begin
     if rising_edge(clk) then
@@ -72,7 +88,7 @@ begin
     end if;
 end process;
 
--- Next state and output logic
+-- state transition logic
 process(current_state, send, newline,valid, txDone, hex_disp, space, deviceOutput, hex_high_reg, hex_low_reg, space_reg)
 begin
     -- defaults
@@ -98,7 +114,7 @@ begin
             
         when SEND_CR =>
             deviceOutputSent <= '0';
-            txdata_reg <= x"0D";  -- Carriage Return (CR)
+            txdata_reg <= x"0D";  -- carriage return
             txNow <= '1';
             next_state <= WAIT_CR;
 
@@ -110,7 +126,7 @@ begin
 
         when SEND_LF =>
             deviceOutputSent <= '0';
-            txdata_reg <= x"0A";  -- Line Feed (LF)
+            txdata_reg <= x"0A";  -- line feed
             txNow <= '1';
             next_state <= WAIT_LF;
 
@@ -163,7 +179,7 @@ begin
 
         when SEND_SPACE =>
             deviceOutputSent <= '0';
-            txdata_reg <= x"20"; -- ASCII space
+            txdata_reg <= x"20"; -- ascii space
             txNow <= '1';
             next_state <= WAIT_SPACE;
 
